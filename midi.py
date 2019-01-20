@@ -3,6 +3,9 @@ import pygame.midi
 import time
 from threading import Thread
 from track import *
+import random
+from chesscam import ChessCam
+
 class midi:
     def __init__(self):
         pygame.midi.init()
@@ -18,6 +21,10 @@ class midi:
         self.running=True
         self.track = track()
 
+        self.chesscam = ChessCam()
+        #self.chesscam.start()
+
+
         ##SCREEN
 
         (width, height) = (300, 200)
@@ -31,13 +38,12 @@ class midi:
         while self.running:
             self.pygame_io()
             self.clock()
+            self.chesscam.update()
+            self.track.update(self.chesscam.gridToState())
             if sechzehntel < self.count or sechzehntel ==15 and self.count ==0:
                 self.play()
                 sechzehntel = (sechzehntel+1)%16
-            # if self.playing:
-            #     print("Woop")
-            #     t1 = Thread(target=self.play(0.1))
-            #     t1.start()
+
 
     def pygame_io(self):
         for event in pygame.event.get():
@@ -52,15 +58,15 @@ class midi:
 
     #note 36 = C0
     def play(self):
-        print(self.count)
+        #print(self.count)
+        velocity = 100
+        for i, seq in enumerate(self.track.sequences):
+            #self.midiOut.note_off(36 + i)
+            #time.sleep(random.random()*0.1)
+            if seq[self.count] == 1:
+                print(seq)
+                self.midiOut.note_on(36 + i, velocity)
 
-
-        if self.track.kick[self.count]==1:
-            Thread(target=self.midi_note()).start()
-        elif self.track.snare[self.count]==1:
-            Thread(target=self.midi_note(note=37)).start()
-        elif self.track.hh[self.count]==1:
-            Thread(target=self.midi_note(note=38)).start()
     def midi_note(self, duration =.01
         ,note = 36
         ,velocity = 100):
@@ -75,11 +81,8 @@ class midi:
     def clock(self):
         for info in self.midiIn.read(5):
             if (info[0][0]) == 248:
-                print(info)
-
                 self.clockc +=1
-
-                if (self.clockc>=6):
+                if (self.clockc>=12):
                     self.clockc = 0
                     self.count+=1
                     if (self.playing==False):
@@ -95,8 +98,8 @@ class midi:
 
 if __name__=="__main__":
     midi = midi()
-    time.sleep(1)
 
+    midi.chesscam.quit()
     midi.clock()
     midi.quit()
     print(midi.count)
