@@ -10,6 +10,14 @@ class ChessCam:
         self.frame = np.flip(self.frame, axis=1)
         self.frame = np.flip(self.frame, axis=2)
 
+        # define color boundaries (lower, upper) (in RGB, since we always flip the frame)
+        self.colorBoundaries = [
+            (np.array([100, 15, 17]), np.array([200, 56, 50])), # red
+            (np.array([4, 86, 31]), np.array([50, 220, 88])),   # green
+            (np.array([4, 31, 86]), np.array([50, 88, 220]))    # blue
+        ]
+        self.states = np.zeros(self.grid.shape[:2], dtype=np.int)   # array that holds a persistent state of the chessboard
+
     def update(self):
 
         # Capture frame-by-frame
@@ -87,29 +95,41 @@ class ChessCam:
 
 
     def gridToState(self):
-        tolerance = 80
+        # tolerance = 80
+        aoiHalfWidth = 5  # half width in pixels of the area of interest around the centroids
 
         self.grid = self.grid.astype(np.int)
-        states = np.zeros(self.grid.shape[:2], dtype=np.int)
+        # states = np.zeros(self.grid.shape[:2], dtype=np.int)
         for i in range(8):
             for j in range(8):
                 try:
-                    currColor = self.frame[self.grid[j, i, 1], self.grid[j, i, 0]]
-                    if (currColor[0] > 255 - tolerance) and (currColor[1] < tolerance) and (currColor[2] < tolerance):
-                        state = 1
-                    elif (currColor[0] < tolerance) and (currColor[1] > 255 - tolerance) and (currColor[2] < tolerance):
-                        state = 2
-                    elif (currColor[0] < tolerance) and (currColor[1] < tolerance) and (currColor[2] > 255 - tolerance):
-                        state = 3
-                    else:
-                        state = 0
-                    states[j, i] = state
+                    state = 0  # initially, state is Off
+                    # now loop through the colors to see if there is a significant amount of any
+                    for colorNum, (lower, upper) in enumerate(self.colorBoundaries):
+                        areaOfInterest = self.frame[self.grid[j, i, 1]-aoiHalfWidth:self.grid[j, i, 1]+aoiHalfWidth, self.grid[j, i, 0]-aoiHalfWidth:self.grid[j, i, 0]+aoiHalfWidth]
+                        mask = cv2.inRange(areaOfInterest, lower, upper)  # returns binary mask: pixels which fall in the range are white (255), others black (0)
+                        if np.mean(mask) > 100:  # if some significant amount of pixels in the mask is 255, we consider it colored
+                            state = colorNum + 1  # +1 because colorNum is zero-based, but state zero is Off
+                    self.states[j, i] = state
+
+                    # currColor = self.frame[self.grid[j, i, 1], self.grid[j, i, 0]]
+                    # if (currColor[0] > 255 - tolerance) and (currColor[1] < tolerance) and (currColor[2] < tolerance):
+                    #     state = 1
+                    # elif (currColor[0] < tolerance) and (currColor[1] > 255 - tolerance) and (currColor[2] < tolerance):
+                    #     state = 2
+                    # elif (currColor[0] < tolerance) and (currColor[1] < tolerance) and (currColor[2] > 255 - tolerance):
+                    #     state = 3
+                    # else:
+                    #     state = 0
+                    # states[j, i] = state
                 except:
                     pass
-        seq1 = np.concatenate( (states[:,0], states[:,1])  )
-        seq2 = np.concatenate( (states[:,2], states[:,3])  )
-        seq3 = np.concatenate( (states[:,4], states[:,5])  )
-        seq4 = np.concatenate( (states[:,6], states[:,7])  )
+
+        # dissect the board into the four 16-step sequences (two rows for each sequence of 16 steps)
+        seq1 = np.concatenate((self.states[:,0], self.states[:,1]))
+        seq2 = np.concatenate((self.states[:,2], self.states[:,3]))
+        seq3 = np.concatenate((self.states[:,4], self.states[:,5]))
+        seq4 = np.concatenate((self.states[:,6], self.states[:,7]))
         return (seq1, seq2, seq3, seq4)
 
 
