@@ -1,106 +1,217 @@
 import pygame
 import pygame.midi
 import time
-from threading import Thread
-from track import *
+# from threading import Thread
+from track import Track
 import random
 from chesscam import ChessCam
 
-class midi:
+class Sequencer:
     def __init__(self):
+        pygame.init()
         pygame.midi.init()
-        #self.midiOut.set_instrument(10)
-        print(pygame.midi.get_default_input_id())
-        for i in range(pygame.midi.get_count()):
-            print(pygame.midi.get_device_info(i))
-        self.midiOut = pygame.midi.Output(7, 0)
-        self.midiIn = pygame.midi.Input(3)
-        self.count = 0  # Beats played
-        self.clockc = 0  # Beats played
-        self.playing=False
-        self.running=True
-        self.track = track()
 
-        self.chesscam = ChessCam()
-        #self.chesscam.start()
+        self.midiOut = self.ask_for_midi_device(kind="output")  # prompt the user to choose MIDI input ...
+        self.midiIn = self.ask_for_midi_device(kind="input")    # ... and output device
 
+        # initialize state
+        self.count = 0  # current step based on clock sync
+        self.clockTicks = 0  # counter for received clock ticks
+        self.running = True
+        self.randomness = 0.
 
-        ##SCREEN
+        self.track = Track()
+        # self.chesscam = ChessCam()
 
-        (width, height) = (300, 200)
+        # initialize window geometry
+        self.initBoardRects(left=50, top=50, width=400)     # init chessboard
+        self.resetButtonRect = pygame.Rect(200, 500, 100, 50)   # init rect of reset button
+        self.notchDownButtonRect = pygame.Rect(100, 500, 50, 50)   # init rect of notch down button
+        self.notchUpButtonRect = pygame.Rect(350, 500, 50, 50)   # init rect of noth up button
+
+    def run(self):
+        # initialize the pygame screen
+        (width, height) = (500, 600)
         screen = pygame.display.set_mode((width, height))
-        screen.fill((255, 255, 255))  #
-        pygame.draw.rect(screen, (90,155,255), (200, 150, 100, 50))
-        pygame.display.flip()
-
-
-        sechzehntel =0
+        screen.fill((255, 255, 255))
+        
+        currentStep = 0
         while self.running:
             self.pygame_io()
             self.clock()
-            self.chesscam.update()
-            self.track.update(self.chesscam.gridToState())
-            if sechzehntel < self.count or sechzehntel ==15 and self.count ==0:
+            # self.chesscam.update()
+            # self.track.update(self.chesscam.gridToState())
+            if currentStep != self.count:
                 self.play()
-                sechzehntel = (sechzehntel+1)%16
+                currentStep = (currentStep + 1) % 16
 
+            # draw the window
+            self.drawBoard(screen)
+            self.drawButtons(screen)
+            pygame.display.flip()
+
+        self.quit()
+
+
+    def ask_for_midi_device(self, kind="input"):
+        """ Let the user choose the midi device to use """
+        # Check, if we are looking for a valid kind:
+        assert (kind in ("input", "output")), "Invalid MIDI device kind: {0}".format(kind)
+
+        is_input = (kind == "input")
+        # First, print info about the available devices:
+        print()
+        print("Available MIDI {0} devices:".format(kind))
+        device_ids = []  # list to hold all available device IDs
+        device_id = 0
+        info_tuple = ()
+        # print info about all the devices
+        while not pygame.midi.get_device_info(device_id) is None:
+            info_tuple = pygame.midi.get_device_info(device_id)
+            if info_tuple[2] == is_input:  # this holds 1 if device is an input device, 0 if not
+                print("ID: {0}\t{1}\t{2}".format(device_id, info_tuple[0], info_tuple[1]))
+                device_ids.append(device_id)
+            device_id += 1
+        assert (device_id > 0), "No {0} devices found!".format(kind)
+
+        user_input_id = -1
+        while not user_input_id in device_ids:  # ask for the desired device ID until one of the available ones is given
+            user_input = input("Which device would you like to use as {0}? Please provide its ID: ".format(kind))
+            try:  # try to cast the user input into an int
+                user_input_id = int(user_input)
+            except ValueError:  # if it fails because of incompatible input, let them try again
+                pass
+        info_tuple = pygame.midi.get_device_info(user_input_id)
+        print("Chosen {0} device: ID: {1}\t".format(kind, user_input_id) + str(info_tuple[0]) + "\t" + str(info_tuple[1]))
+        # Open port from chosen device
+        if kind == "input":
+            return pygame.midi.Input(device_id=user_input_id)
+        elif kind == "output":
+            return pygame.midi.Output(device_id=user_input_id, latency=0)
 
     def pygame_io(self):
         for event in pygame.event.get():
             if event.type == pygame.MOUSEBUTTONUP:
-                x, y = event.pos
-                if (200<=x<=300 and 150<=y<=200):
-                    self.clockc = 0
+                # check if one of the buttons was clicked
+                if self.resetButtonRect.collidepoint(event.pos):
+                    self.clockTicks = 0
+                    print(self.clockTicks)
+                if self.notchDownButtonRect.collidepoint(event.pos):
+                    self.clockTicks = (self.clockTicks - 1) % 12
+                    print(self.clockTicks)
+                if self.notchUpButtonRect.collidepoint(event.pos):
+                    self.clockTicks = (self.clockTicks + 1) % 12
+                    print(self.clockTicks)
             if event.type == pygame.QUIT:
                 self.running = False
-                return
 
-
-    #note 36 = C0
     def play(self):
         #print(self.count)
         velocity = 100
+
+        # create timestamp for this step with an option of a random delay
+        currentTimeInMs = pygame.midi.time()
+        randomDelay = int(self.randomness*random.random())
+        timestamp = currentTimeInMs + randomDelay
+
+        # loop through the sequences and create the MIDI events of this step
+        midiEvents = []  # collect them in this list, then send all at once
         for i, seq in enumerate(self.track.sequences):
+            midiEvents.append([[0x80, 36 + i, 0], timestamp - 1])  # note off for all notes (note 36: C0). Reduce timestamp to make sure note off occurs before next note on.
             #self.midiOut.note_off(36 + i)
             #time.sleep(random.random()*0.1)
             if seq[self.count] == 1:
-                print(seq)
-                self.midiOut.note_on(36 + i, velocity)
+                midiEvents.append([[0x90, 36 + i, velocity], timestamp])  # note on, if a 1 is set in the respective sequence
+                # self.midiOut.note_on(36 + i, velocity)
 
-    def midi_note(self, duration =.01
-        ,note = 36
-        ,velocity = 100):
-        self.midiOut.note_on(note, velocity)
-        time.sleep(duration)
-        self.midiOut.note_off(note, velocity)
+        self.midiOut.write(midiEvents)  # write the events to the MIDI output port
+
+    # def midi_note(self, duration =.01
+    #     ,note = 36
+    #     ,velocity = 100):
+    #     self.midiOut.note_on(note, velocity)
+    #     time.sleep(duration)
+    #     self.midiOut.note_off(note, velocity)
 
     def quit(self):
         self.midiOut.close()
         self.midiIn.close()
+        # self.chesscam.quit()
+        pygame.quit()
 
     def clock(self):
-        for info in self.midiIn.read(5):
-            if (info[0][0]) == 248:
-                self.clockc +=1
-                if (self.clockc>=12):
-                    self.clockc = 0
-                    self.count+=1
-                    if (self.playing==False):
-                        self.playing=True
+        for midiEvent in self.midiIn.read(5):  # read 5 MIDI events from the buffer. TODO: Good number?
+            if (midiEvent[0][0]) == 248:
+                self.clockTicks += 1  # count the clock ticks
+                if (self.clockTicks >= 12):  # 12 clock ticks are 1 16th note
+                    self.clockTicks = 0  # reset the tick counter
+                    self.count = (self.count + 1) % 16  # advance the 16th note counter
 
-                if self.count >15:
-                    self.count=0
-            else:
-                pass
+    def initBoardRects(self, left, top, width):
+        rectWidth = int(width/8.)
+        self.boardRects = []
+        for yIndex in range(8):
+            for xIndex in range(8):
+                self.boardRects.append(pygame.Rect((left + xIndex*rectWidth, left + yIndex*rectWidth, rectWidth, rectWidth)))
 
+    def drawBoard(self, screen):
+        """ Method for optionally drawing the current state of the sequencer """
 
+        # below, draw a light green where the current step is (blit this surface there)
+        currentStepSurf = pygame.Surface((self.boardRects[0].width, self.boardRects[0].width))
+        currentStepSurf.set_alpha(100)
+        currentStepSurf.fill((0, 255, 0))
 
+        # loop through the chessboard fields (stored in self.boardRects list, row-wise)
+        for i, currentRect in enumerate(self.boardRects):
+            # Check if the corresponding sequence has a 1 for the current field
+            isRed = self.track.sequences[3*(i // 16), i % 16]
+            isGreen = self.track.sequences[3*(i // 16) + 1, i % 16]
+            isBlue = self.track.sequences[3*(i // 16) + 2, i % 16]
+            
+            if isRed or isGreen or isBlue:
+                pygame.draw.rect(screen, (isRed*255, isGreen*255, isBlue*255), currentRect)
+            else:  # if not set, just draw black or white chessboard-style
+                isWhite = ((i + (i//8)%2) % 2 == 0)
+                pygame.draw.rect(screen, (isWhite*255, isWhite*255, isWhite*255), currentRect)
+
+            # draw a light green where the current step is
+            if i % 16 == self.count:
+                screen.blit(currentStepSurf, currentRect)
+
+    def drawButtons(self, screen):
+        bgcol = (90,155,255)
+        
+        # draw reset (or 'tap' button)
+        pygame.draw.rect(screen, bgcol, self.resetButtonRect)
+        # draw label
+        font = pygame.font.SysFont('Times New Roman', 20)
+        text_surface = font.render('Tap Beat', True, (255, 255, 255, 255), bgcol)
+        textrect = text_surface.get_rect()
+        textrect.centerx = self.resetButtonRect.x + self.resetButtonRect.width/2
+        textrect.centery = self.resetButtonRect.y + 0.9*self.resetButtonRect.height/2
+        screen.blit(text_surface, textrect)
+
+        # draw notch down button
+        pygame.draw.rect(screen, bgcol, self.notchDownButtonRect)
+        # draw label
+        font = pygame.font.SysFont('Times New Roman', 20)
+        text_surface = font.render('<<', True, (255, 255, 255, 255), bgcol)
+        textrect = text_surface.get_rect()
+        textrect.centerx = self.notchDownButtonRect.x + self.notchDownButtonRect.width/2
+        textrect.centery = self.notchDownButtonRect.y + self.notchDownButtonRect.height/2
+        screen.blit(text_surface, textrect)
+
+        # draw notch up button
+        pygame.draw.rect(screen, bgcol, self.notchUpButtonRect)
+        # draw label
+        font = pygame.font.SysFont('Times New Roman', 20)
+        text_surface = font.render('>>', True, (255, 255, 255, 255), bgcol)
+        textrect = text_surface.get_rect()
+        textrect.centerx = self.notchUpButtonRect.x + self.notchUpButtonRect.width/2
+        textrect.centery = self.notchUpButtonRect.y + self.notchUpButtonRect.height/2
+        screen.blit(text_surface, textrect)
 
 if __name__=="__main__":
-    midi = midi()
-
-    midi.chesscam.quit()
-    midi.clock()
-    midi.quit()
-    print(midi.count)
-    print(midi.clockc)
+    sequencer = Sequencer()
+    sequencer.run()

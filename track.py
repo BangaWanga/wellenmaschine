@@ -1,13 +1,15 @@
 import numpy as np
 
-class track:
+class Track:
     def __init__(self):
         #self.kick = [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0]
         #self.hh = [0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1]
         #self.snare = [1,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0]
 
+        # We have 12 sequences with 16 steps each
         self.sequences = np.zeros((12, 16), dtype=np.int)
-
+        self.sequences[0, 0] = 1
+        self.sequences[1, 4] = 1
 
     def update(self, sequences):
         self.sequences = np.zeros((12, 16), dtype=np.int)

@@ -10,10 +10,6 @@ class ChessCam:
         self.frame = np.flip(self.frame, axis=1)
         self.frame = np.flip(self.frame, axis=2)
 
-    def start(self):
-        self.cap = cv2.VideoCapture(0)
-        ret, self.frame = self.cap.read()
-
     def update(self):
 
         # Capture frame-by-frame
