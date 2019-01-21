@@ -80,7 +80,7 @@ class ChessCam:
         #     break
 
     def make_grid(self, centroids):
-        # We assume that the field at the upper left corner is white
+        # We assume that the field in the upper left corner is white
         # We should have 32 measured centroids in total (for the white fields)
         # The black ones have to be calculated from the white ones here
 
@@ -114,20 +114,22 @@ class ChessCam:
 
     def gridToState(self):
         # tolerance = 80
-        aoiHalfWidth = 5  # half width in pixels of the area of interest around the centroids
+        aoiHalfWidth = 5  # half width in pixels of the square area of interest around the centroids
 
         self.grid = self.grid.astype(np.int)
         # states = np.zeros(self.grid.shape[:2], dtype=np.int)
-        for i in range(8):
-            for j in range(8):
+        for i in range(8):  # loop over y-coordinate
+            for j in range(8):  # loop over x-coordinate
                 try:
                     state = 0  # initially, state is Off
                     # now loop through the colors to see if there is a significant amount of any
+                    # At the end, state will always correspond to the last color that was found
                     for colorNum, (lower, upper) in enumerate(self.colorBoundaries):
                         areaOfInterest = self.frame[self.grid[j, i, 1]-aoiHalfWidth:self.grid[j, i, 1]+aoiHalfWidth, self.grid[j, i, 0]-aoiHalfWidth:self.grid[j, i, 0]+aoiHalfWidth]
                         mask = cv2.inRange(areaOfInterest, lower, upper)  # returns binary mask: pixels which fall in the range are white (255), others black (0)
                         if np.mean(mask) > 100:  # if some significant amount of pixels in the mask is 255, we consider it colored
                             state = colorNum + 1  # +1 because colorNum is zero-based, but state zero is Off
+                    # Write the state in the respective field
                     self.states[j, i] = state
 
                     # currColor = self.frame[self.grid[j, i, 1], self.grid[j, i, 0]]
@@ -140,7 +142,8 @@ class ChessCam:
                     # else:
                     #     state = 0
                     # states[j, i] = state
-                except:
+                except IndexError:
+                    # if an error occurs due to invalid coordinates, just don't change the state
                     pass
 
         # dissect the board into the four 16-step sequences (two rows for each sequence of 16 steps)
