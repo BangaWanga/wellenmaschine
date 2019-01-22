@@ -130,6 +130,8 @@ class Sequencer:
                     self.calibrateColor = 1
                 if event.key == pygame.K_b:
                     self.calibrateColor = 2
+                if event.key == pygame.K_ESCAPE:  # abort color calibration with ESC
+                    self.calibrateColor = -1
             if event.type == pygame.QUIT:
                 self.running = False
 
