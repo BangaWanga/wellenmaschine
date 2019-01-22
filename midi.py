@@ -21,7 +21,11 @@ class Sequencer:
         self.randomness = 0.
 
         self.track = Track()
-        # self.chesscam = ChessCam()
+        self.chesscam = ChessCam()
+
+        self.updateGrid = False
+        self.updateSeq = False
+        self.calibrateColor = -1
 
         # initialize window geometry
         self.initBoardRects(left=50, top=50, width=400)     # init chessboard
@@ -39,8 +43,12 @@ class Sequencer:
         while self.running:
             self.pygame_io()
             self.clock()
-            # self.chesscam.update()
-            # self.track.update(self.chesscam.gridToState())
+            self.chesscam.update(self.updateGrid)
+            if self.updateGrid == True:
+                self.updateGrid = False
+            if self.updateSeq:
+                self.track.update(self.chesscam.gridToState())
+                self.updateSeq = False
             if currentStep != self.count:
                 self.play()
                 currentStep = (currentStep + 1) % 16
@@ -95,13 +103,33 @@ class Sequencer:
                 # check if one of the buttons was clicked
                 if self.resetButtonRect.collidepoint(event.pos):
                     self.clockTicks = 0
-                    print(self.clockTicks)
                 if self.notchDownButtonRect.collidepoint(event.pos):
                     self.clockTicks = (self.clockTicks - 1) % 12
-                    print(self.clockTicks)
                 if self.notchUpButtonRect.collidepoint(event.pos):
                     self.clockTicks = (self.clockTicks + 1) % 12
-                    print(self.clockTicks)
+                # check if one of the board fields was clicked
+                for fieldIndex in range(64):
+                    if self.boardRects[fieldIndex].collidepoint(event.pos):
+                        # if clicked and a calibration key was pressed before ("r", "g" or "b"), calibrate the color detection
+                        if self.calibrateColor > -1:
+                            self.chesscam.setRange(self.calibrateColor, fieldIndex % 8, fieldIndex // 8)
+                            self.calibrateColor = -1
+                        else:
+                            # if clicked without prior calibration key, print out the colors in its area of interest
+                            self.chesscam.printColors(fieldIndex % 8, fieldIndex // 8)
+                        break  # if a field was found to be clicked, don't check the remaining ones
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_c:
+                    self.updateGrid = True
+                if event.key == pygame.K_u:
+                    self.updateSeq = True
+                if event.key == pygame.K_r:
+                    self.calibrateColor = 0
+                if event.key == pygame.K_g:
+                    self.calibrateColor = 1
+                if event.key == pygame.K_b:
+                    self.calibrateColor = 2
             if event.type == pygame.QUIT:
                 self.running = False
 
@@ -136,14 +164,14 @@ class Sequencer:
     def quit(self):
         self.midiOut.close()
         self.midiIn.close()
-        # self.chesscam.quit()
+        self.chesscam.quit()
         pygame.quit()
 
     def clock(self):
         for midiEvent in self.midiIn.read(5):  # read 5 MIDI events from the buffer. TODO: Good number?
             if (midiEvent[0][0]) == 248:
-                self.clockTicks += 1  # count the clock ticks
-                if (self.clockTicks >= 12):  # 12 clock ticks are 1 16th note
+                self.clockTicks = (self.clockTicks + 1) % 12  # count the clock ticks
+                if (self.clockTicks == 0):  # 12 clock ticks are one 16th note
                     self.clockTicks = 0  # reset the tick counter
                     self.count = (self.count + 1) % 16  # advance the 16th note counter
 

@@ -12,13 +12,13 @@ class ChessCam:
 
         # define color boundaries (lower, upper) (in RGB, since we always flip the frame)
         self.colorBoundaries = [
-            (np.array([100, 15, 17]), np.array([200, 56, 50])), # red
-            (np.array([4, 86, 31]), np.array([50, 220, 88])),   # green
-            (np.array([4, 31, 86]), np.array([50, 88, 220]))    # blue
+            [np.array([100, 15, 17]), np.array([200, 56, 50])], # red
+            [np.array([0, 70, 5]), np.array([50, 200, 50])],   # green
+            [np.array([4, 31, 86]), np.array([50, 88, 220])]    # blue
         ]
         self.states = np.zeros(self.grid.shape[:2], dtype=np.int)   # array that holds a persistent state of the chessboard
 
-    def update(self):
+    def update(self, updateGrid=True):
 
         # capture a frame from the video stream
         ret, self.frame = self.cap.read()
@@ -36,7 +36,7 @@ class ChessCam:
         gray = cv2.blur(gray, (20,20))
 
         # threshold filter -> convert into 2-color image
-        ret, dst = cv2.threshold(gray, 0.5 * gray.max(), 255, 0)
+        ret, dst = cv2.threshold(gray, 0.6 * gray.max(), 255, 0)
 
         # use unsigned int (0 .. 255)
         dst = np.uint8(dst)
@@ -62,13 +62,16 @@ class ChessCam:
         # This sorts them row-wise from top to bottom (with increasing y-coordinate), but unordered x-coordinate
         centroids = centroids[np.argsort(centroids[:,1])]
         try:
-            self.make_grid(centroids)
+            if updateGrid:
+                self.make_grid(centroids)
             # Write coordinates to the screen
             for i in range(8):
                 for j in range(8):
+                    isBlackField = ((i%2 == 0) and (j%2 == 1)) or ((i%2 == 1) and (j%2 == 0))
+                    c = (255*isBlackField, 255*isBlackField, 255*isBlackField)
                     cv2.putText(dst, "({0}, {1})".format(i, j), tuple(self.grid[i, j]), fontScale=0.2,
                                 fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                                color=(255, 255, 255))
+                                color=c)
         except:
             pass  # We don't care. Just do nothing.
             #print('fuck this shit')
@@ -113,6 +116,8 @@ class ChessCam:
 
 
     def gridToState(self):
+        print("Making a new state")
+
         # tolerance = 80
         aoiHalfWidth = 5  # half width in pixels of the square area of interest around the centroids
 
@@ -127,7 +132,7 @@ class ChessCam:
                     for colorNum, (lower, upper) in enumerate(self.colorBoundaries):
                         areaOfInterest = self.frame[self.grid[j, i, 1]-aoiHalfWidth:self.grid[j, i, 1]+aoiHalfWidth, self.grid[j, i, 0]-aoiHalfWidth:self.grid[j, i, 0]+aoiHalfWidth]
                         mask = cv2.inRange(areaOfInterest, lower, upper)  # returns binary mask: pixels which fall in the range are white (255), others black (0)
-                        if np.mean(mask) > 100:  # if some significant amount of pixels in the mask is 255, we consider it colored
+                        if np.mean(mask) > 50:  # if some significant amount of pixels in the mask is 255, we consider it colored
                             state = colorNum + 1  # +1 because colorNum is zero-based, but state zero is Off
                     # Write the state in the respective field
                     self.states[j, i] = state
@@ -153,6 +158,26 @@ class ChessCam:
         seq4 = np.concatenate((self.states[:,6], self.states[:,7]))
         return (seq1, seq2, seq3, seq4)
 
+    def printColors(self, j, i):
+        aoiHalfWidth = 2
+        areaOfInterest = self.frame[self.grid[j, i, 1]-aoiHalfWidth:self.grid[j, i, 1]+aoiHalfWidth, self.grid[j, i, 0]-aoiHalfWidth:self.grid[j, i, 0]+aoiHalfWidth]        
+        print(areaOfInterest)
+
+        # for colorNum, (lower, upper) in enumerate(self.colorBoundaries):
+        #     mask = cv2.inRange(areaOfInterest, lower, upper)  # returns binary mask: pixels which fall in the range are white (255), others black (0)
+        #     print(mask)
+
+    def setRange(self, colorIndex, j, i):
+        aoiHalfWidth = 2
+        areaOfInterest = self.frame[self.grid[j, i, 1]-aoiHalfWidth:self.grid[j, i, 1]+aoiHalfWidth, self.grid[j, i, 0]-aoiHalfWidth:self.grid[j, i, 0]+aoiHalfWidth]
+        meanColor = np.mean(np.mean(areaOfInterest, axis=0), axis=0)
+        lowerColor = np.clip(meanColor - 20, 0, 255).astype(np.uint8)
+        upperColor = np.clip(meanColor + 20, 0, 255).astype(np.uint8)
+
+        # print(lowerColor)
+        # print(upperColor)
+
+        self.colorBoundaries[colorIndex] = [lowerColor, upperColor]
 
 
     def quit(self):

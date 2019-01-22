@@ -8,8 +8,8 @@ class Track:
 
         # We have 12 sequences with 16 steps each
         self.sequences = np.zeros((12, 16), dtype=np.int)
-        self.sequences[0, 0] = 1
-        self.sequences[1, 4] = 1
+        # self.sequences[0, 0] = 1
+        # self.sequences[1, 4] = 1
 
     def update(self, sequences):
         self.sequences = np.zeros((12, 16), dtype=np.int)
@@ -21,6 +21,6 @@ class Track:
                     # The sequences 3 to 5 belong to the third and fourth row on the chessboard.
                     # ...
                     # The vals range from 0 to 3: 0 is off, 1 to 3 (red, green, blue) are the sub-voices
-                    self.sequences[i + val - 1, j] = 1
+                    self.sequences[3*i + val - 1, j] = 1
         #if (np.any(sequences)):
          #   print(self.sequences)
