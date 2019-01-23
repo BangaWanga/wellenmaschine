@@ -184,4 +184,12 @@ class ChessCam:
         # When everything done, release the capture
         cap.release()
         cv2.destroyAllWindows()
+        
+    def save_calibrated(self):
+        np.save('colors.yamama', self.colorBoundaries)
+    def load_calibrated(self):
+        try:
+            self.colorBoundaries = np.load('colors.yamama')
+        except:
+            print("No file detected for color values")
 
