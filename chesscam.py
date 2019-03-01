@@ -123,21 +123,25 @@ class ChessCam:
 
         self.grid = self.grid.astype(np.int)
         # states = np.zeros(self.grid.shape[:2], dtype=np.int)
-        for i in range(8):  # loop over y-coordinate
-            for j in range(8):  # loop over x-coordinate
+        for y in range(8):  # loop over y-coordinate
+            for x in range(8):  # loop over y-coordinate
                 try:
                     state = 0  # initially, state is Off
                     # now loop through the colors to see if there is a significant amount of any
                     # At the end, state will always correspond to the last color that was found
                     for colorNum, (lower, upper) in enumerate(self.colorBoundaries):
-                        areaOfInterest = self.frame[self.grid[j, i, 1]-aoiHalfWidth:self.grid[j, i, 1]+aoiHalfWidth, self.grid[j, i, 0]-aoiHalfWidth:self.grid[j, i, 0]+aoiHalfWidth]
+                        # define area of interest (square around field midpoint)
+                        lowerY, upperY = self.grid[x, y, 1] - aoiHalfWidth, self.grid[x, y, 1] + aoiHalfWidth
+                        lowerX, upperX = self.grid[x, y, 0] - aoiHalfWidth, self.grid[x, y, 0] + aoiHalfWidth
+                        areaOfInterest = self.frame[lowerY:upperY, lowerX:upperX]
+
                         mask = cv2.inRange(areaOfInterest, lower, upper)  # returns binary mask: pixels which fall in the range are white (255), others black (0)
                         if np.mean(mask) > 50:  # if some significant amount of pixels in the mask is 255, we consider it colored
                             state = colorNum + 1  # +1 because colorNum is zero-based, but state zero is Off
                     # Write the state in the respective field
-                    self.states[j, i] = state
+                    self.states[x, y] = state
 
-                    # currColor = self.frame[self.grid[j, i, 1], self.grid[j, i, 0]]
+                    # currColor = self.frame[self.grid[x, y, 1], self.grid[x, y, 0]]
                     # if (currColor[0] > 255 - tolerance) and (currColor[1] < tolerance) and (currColor[2] < tolerance):
                     #     state = 1
                     # elif (currColor[0] < tolerance) and (currColor[1] > 255 - tolerance) and (currColor[2] < tolerance):
@@ -146,7 +150,7 @@ class ChessCam:
                     #     state = 3
                     # else:
                     #     state = 0
-                    # states[j, i] = state
+                    # states[x, y] = state
                 except IndexError:
                     # if an error occurs due to invalid coordinates, just don't change the state
                     pass

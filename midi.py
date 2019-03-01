@@ -21,7 +21,7 @@ class Sequencer:
         self.randomness = 0.
 
         self.track = Track()
-        self.chesscam = ChessCam()
+        self.chesscam = ChessCam()  # TODO: operate camera in separate thread to update non-blockingly
 
         self.updateGrid = False
         self.updateSeq = False
