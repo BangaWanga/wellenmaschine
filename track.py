@@ -1,6 +1,7 @@
 import numpy as np
 
 class Track:
+    # TODO: Try variations like patterns with different lengths (maybe on smaller raster)
     def __init__(self):
         #self.kick = [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0]
         #self.hh = [0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1]
