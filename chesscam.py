@@ -116,19 +116,20 @@ class ChessCam:
 
 
     def gridToState(self):
-        print("Making a new state")
+        print("Making a new color_state")
 
         # tolerance = 80
         aoiHalfWidth = 5  # half width in pixels of the square area of interest around the centroids
+        colored_threshold = 50  # threshold for detecting if a field is colored (measured values are between 0 and 255)
 
         self.grid = self.grid.astype(np.int)
         # states = np.zeros(self.grid.shape[:2], dtype=np.int)
         for y in range(8):  # loop over y-coordinate
             for x in range(8):  # loop over y-coordinate
                 try:
-                    state = 0  # initially, state is Off
+                    color_state = 0  # initially, color_state is Off (1: red, 2: green, 3: blue)
                     # now loop through the colors to see if there is a significant amount of any
-                    # At the end, state will always correspond to the last color that was found
+                    # At the end, color_state will always correspond to the last color that was found
                     for colorNum, (lower, upper) in enumerate(self.colorBoundaries):
                         # define area of interest (square around field midpoint)
                         lowerY, upperY = self.grid[x, y, 1] - aoiHalfWidth, self.grid[x, y, 1] + aoiHalfWidth
@@ -136,23 +137,12 @@ class ChessCam:
                         areaOfInterest = self.frame[lowerY:upperY, lowerX:upperX]
 
                         mask = cv2.inRange(areaOfInterest, lower, upper)  # returns binary mask: pixels which fall in the range are white (255), others black (0)
-                        if np.mean(mask) > 50:  # if some significant amount of pixels in the mask is 255, we consider it colored
-                            state = colorNum + 1  # +1 because colorNum is zero-based, but state zero is Off
-                    # Write the state in the respective field
-                    self.states[x, y] = state
+                        if np.mean(mask) > colored_threshold:  # if some significant amount of pixels in the mask is 255, we consider it colored
+                            color_state = colorNum + 1  # +1 because colorNum is zero-based, but color_state zero is Off
+                    self.states[x, y] = color_state
 
-                    # currColor = self.frame[self.grid[x, y, 1], self.grid[x, y, 0]]
-                    # if (currColor[0] > 255 - tolerance) and (currColor[1] < tolerance) and (currColor[2] < tolerance):
-                    #     state = 1
-                    # elif (currColor[0] < tolerance) and (currColor[1] > 255 - tolerance) and (currColor[2] < tolerance):
-                    #     state = 2
-                    # elif (currColor[0] < tolerance) and (currColor[1] < tolerance) and (currColor[2] > 255 - tolerance):
-                    #     state = 3
-                    # else:
-                    #     state = 0
-                    # states[x, y] = state
                 except IndexError:
-                    # if an error occurs due to invalid coordinates, just don't change the state
+                    # if an error occurs due to invalid coordinates, just don't change the color_state
                     pass
 
         # dissect the board into the four 16-step sequences (two rows for each sequence of 16 steps)
