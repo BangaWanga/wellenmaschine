@@ -1,8 +1,7 @@
 import pygame
 import pygame.midi
-import time
 # from threading import Thread
-from track import Track
+from Sequencer.track import Track
 import random
 from chesscam import ChessCam
 
@@ -152,20 +151,10 @@ class Sequencer:
         midiEvents = []  # collect them in this list, then send all at once
         for i, seq in enumerate(self.track.sequences):
             midiEvents.append([[0x80, 36 + i, 0], timestamp - 1])  # note off for all notes (note 36: C0). Reduce timestamp to make sure note off occurs before next note on.
-            #self.midiOut.note_off(36 + i)
-            #time.sleep(random.random()*0.1)
             if seq[self.count] == 1:
                 midiEvents.append([[0x90, 36 + i, velocity], timestamp])  # note on, if a 1 is set in the respective sequence
-                # self.midiOut.note_on(36 + i, velocity)
 
         self.midiOut.write(midiEvents)  # write the events to the MIDI output port
-
-    # def midi_note(self, duration =.01
-    #     ,note = 36
-    #     ,velocity = 100):
-    #     self.midiOut.note_on(note, velocity)
-    #     time.sleep(duration)
-    #     self.midiOut.note_off(note, velocity)
 
     def quit(self):
         self.midiOut.close()
@@ -246,6 +235,6 @@ class Sequencer:
         textrect.centery = self.notchUpButtonRect.y + self.notchUpButtonRect.height/2
         screen.blit(text_surface, textrect)
 
-if __name__=="__main__":
-    sequencer = Sequencer()
-    sequencer.run()
+# if __name__=="__main__":
+#     sequencer = Sequencer()
+#     sequencer.run()
