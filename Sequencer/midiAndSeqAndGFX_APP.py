@@ -1,15 +1,12 @@
 import pygame
 import pygame.midi
-# from threading import Thread
-from Sequencer.track import Track
 import random
+
+from Sequencer.track import Track
 from chesscam import ChessCam
 
 class Sequencer:
     def __init__(self):
-        pygame.init()
-        pygame.midi.init()
-
         self.midiOut = self.ask_for_midi_device(kind="output")  # prompt the user to choose MIDI input ...
         self.midiIn = self.ask_for_midi_device(kind="input")    # ... and output device
 
@@ -32,12 +29,14 @@ class Sequencer:
         self.notchDownButtonRect = pygame.Rect(100, 500, 50, 50)   # init rect of notch down button
         self.notchUpButtonRect = pygame.Rect(350, 500, 50, 50)   # init rect of noth up button
 
-    def run(self):
-        # initialize the pygame screen
+        self.init_display()
+
+    def init_display(self):
         (width, height) = (500, 600)
-        screen = pygame.display.set_mode((width, height))
-        screen.fill((255, 255, 255))
-        
+        self.screen = pygame.display.set_mode((width, height))
+        self.screen.fill((255, 255, 255))
+
+    def run(self):
         currentStep = 0
         while self.running:
             self.pygame_io()
@@ -51,13 +50,13 @@ class Sequencer:
             if currentStep != self.count:
                 self.play()
                 currentStep = (currentStep + 1) % 16
-
-            # draw the window
-            self.drawBoard(screen)
-            self.drawButtons(screen)
-            pygame.display.flip()
-
+            self.draw_window()
         self.quit()
+
+    def draw_window(self):
+        self.drawBoard(self.screen)
+        self.drawButtons(self.screen)
+        pygame.display.flip()
 
 
     def ask_for_midi_device(self, kind="input"):
@@ -234,7 +233,3 @@ class Sequencer:
         textrect.centerx = self.notchUpButtonRect.x + self.notchUpButtonRect.width/2
         textrect.centery = self.notchUpButtonRect.y + self.notchUpButtonRect.height/2
         screen.blit(text_surface, textrect)
-
-# if __name__=="__main__":
-#     sequencer = Sequencer()
-#     sequencer.run()
