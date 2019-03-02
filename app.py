@@ -9,13 +9,29 @@ class App:
         pygame.init()
         pygame.midi.init()
 
-        midiOut = utils.ask_for_midi_device(kind="output")  # prompt the user to choose MIDI input ...
-        midiIn = utils.ask_for_midi_device(kind="input")  # ... and output device
+        # TODO: move values to user config
+        midiOut = utils.ask_for_midi_device(kind="output",default_value=0)  # prompt the user to choose MIDI input ...
+        midiIn = utils.ask_for_midi_device(kind="input",default_value=1)  # ... and output device
 
         self.sequnecer = seq(midiIn, midiOut)
 
+        self.running = True
+
     def run(self):
-        self.sequnecer.run()
+        currentStep = 0
+        while self.running:
+            self.sequnecer.pygame_io()
+            self.sequnecer.clock()
+            self.sequnecer.chesscam.update(self.updateGrid)
+            if self.updateGrid == True:
+                self.updateGrid = False
+            if self.updateSeq:
+                self.sequnecer.track.update(self.sequnecer.chesscam.gridToState())
+                self.updateSeq = False
+            if currentStep != self.sequnecer.count:
+                self.sequnecer.play()
+                currentStep = (currentStep + 1) % 16
+        self.sequnecer.quit()
 
 
 if __name__=="__main__":

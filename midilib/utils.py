@@ -1,7 +1,11 @@
 import pygame
 import pygame.midi
 
-def ask_for_midi_device(kind="input"):
+def ask_for_midi_device(kind="input",default_value = False):
+
+    if (isinstance(default_value, int)):
+        return __return_pygame_IO__(kind,default_value)
+
     """ Let the user choose the midi device to use """
     # Check, if we are looking for a valid kind:
     assert (kind in ("input", "output")), "Invalid MIDI device kind: {0}".format(kind)
@@ -32,6 +36,9 @@ def ask_for_midi_device(kind="input"):
     info_tuple = pygame.midi.get_device_info(user_input_id)
     print("Chosen {0} device: ID: {1}\t".format(kind, user_input_id) + str(info_tuple[0]) + "\t" + str(info_tuple[1]))
     # Open port from chosen device
+    __return_pygame_IO__(kind,user_input_id)
+
+def __return_pygame_IO__(kind,user_input_id):
     if kind == "input":
         return pygame.midi.Input(device_id=user_input_id)
     elif kind == "output":
