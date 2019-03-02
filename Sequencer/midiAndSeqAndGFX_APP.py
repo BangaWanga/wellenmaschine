@@ -1,16 +1,12 @@
 import pygame
 import pygame.midi
-import time
-# from threading import Thread
-from track import Track
 import random
+
+from Sequencer.track import Track
 from chesscam import ChessCam
 
 class Sequencer:
     def __init__(self):
-        pygame.init()
-        pygame.midi.init()
-
         self.midiOut = self.ask_for_midi_device(kind="output")  # prompt the user to choose MIDI input ...
         self.midiIn = self.ask_for_midi_device(kind="input")    # ... and output device
 
@@ -33,12 +29,14 @@ class Sequencer:
         self.notchDownButtonRect = pygame.Rect(100, 500, 50, 50)   # init rect of notch down button
         self.notchUpButtonRect = pygame.Rect(350, 500, 50, 50)   # init rect of noth up button
 
-    def run(self):
-        # initialize the pygame screen
+        self.init_display()
+
+    def init_display(self):
         (width, height) = (500, 600)
-        screen = pygame.display.set_mode((width, height))
-        screen.fill((255, 255, 255))
-        
+        self.screen = pygame.display.set_mode((width, height))
+        self.screen.fill((255, 255, 255))
+
+    def run(self):
         currentStep = 0
         while self.running:
             self.pygame_io()
@@ -52,13 +50,13 @@ class Sequencer:
             if currentStep != self.count:
                 self.play()
                 currentStep = (currentStep + 1) % 16
-
-            # draw the window
-            self.drawBoard(screen)
-            self.drawButtons(screen)
-            pygame.display.flip()
-
+            self.draw_window()
         self.quit()
+
+    def draw_window(self):
+        self.drawBoard(self.screen)
+        self.drawButtons(self.screen)
+        pygame.display.flip()
 
 
     def ask_for_midi_device(self, kind="input"):
@@ -152,20 +150,10 @@ class Sequencer:
         midiEvents = []  # collect them in this list, then send all at once
         for i, seq in enumerate(self.track.sequences):
             midiEvents.append([[0x80, 36 + i, 0], timestamp - 1])  # note off for all notes (note 36: C0). Reduce timestamp to make sure note off occurs before next note on.
-            #self.midiOut.note_off(36 + i)
-            #time.sleep(random.random()*0.1)
             if seq[self.count] == 1:
                 midiEvents.append([[0x90, 36 + i, velocity], timestamp])  # note on, if a 1 is set in the respective sequence
-                # self.midiOut.note_on(36 + i, velocity)
 
         self.midiOut.write(midiEvents)  # write the events to the MIDI output port
-
-    # def midi_note(self, duration =.01
-    #     ,note = 36
-    #     ,velocity = 100):
-    #     self.midiOut.note_on(note, velocity)
-    #     time.sleep(duration)
-    #     self.midiOut.note_off(note, velocity)
 
     def quit(self):
         self.midiOut.close()
@@ -245,7 +233,3 @@ class Sequencer:
         textrect.centerx = self.notchUpButtonRect.x + self.notchUpButtonRect.width/2
         textrect.centery = self.notchUpButtonRect.y + self.notchUpButtonRect.height/2
         screen.blit(text_surface, textrect)
-
-if __name__=="__main__":
-    sequencer = Sequencer()
-    sequencer.run()
