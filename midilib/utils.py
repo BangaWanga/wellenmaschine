@@ -3,7 +3,7 @@ import pygame.midi
 
 def ask_for_midi_device(kind="input",default_value = False):
 
-    if (isinstance(default_value, int)):
+    if (default_value != False):
         return __return_pygame_IO__(kind,default_value)
 
     """ Let the user choose the midi device to use """

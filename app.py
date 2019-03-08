@@ -9,13 +9,15 @@ class App:
         pygame.init()
         pygame.midi.init()
 
-        # TODO: move values to user config
-        midiOut = utils.ask_for_midi_device(kind="output",default_value=0)  # prompt the user to choose MIDI input ...
+        # TODO: move default_value to user config
+        midiOut = utils.ask_for_midi_device(kind="output",default_value=10)  # prompt the user to choose MIDI input ...
         midiIn = utils.ask_for_midi_device(kind="input",default_value=1)  # ... and output device
 
         self.sequnecer = seq(midiIn, midiOut)
 
         self.running = True
+        self.updateGrid = False
+        self.updateSeq = False
 
     def run(self):
         currentStep = 0
